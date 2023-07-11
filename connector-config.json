@@ -1,0 +1,17 @@
+{
+    "name": "inventory-connector",
+    "config": {
+        "connector.class" : "io.debezium.connector.oracle.OracleConnector",
+        "tasks.max" : "1",
+        "topic.prefix" : "server1",
+        "database.hostname" : "192.168.222.128",
+        "database.port" : "1521",
+        "database.user" : "ahosan",
+        "database.password" : "ahosan",
+        "database.dbname" : "ahosan",
+        "bootstrap.servers" : "192.168.222.128:9092",
+        "schema.history.kafka.bootstrap.servers" : "192.168.222.128:9092",
+        "schema.history.kafka.topic": "testTopic",
+        "table.include.list": "ahosan.test"
+    }
+}

@@ -1,0 +1,327 @@
+####################################Kafka, Zookeeper & Kafdrop setup####################################
+Step 1–Install Java
+---------------------
+[root@ahosan1 ~]# dnf install java-11-openjdk wget vim
+
+Step 2–Download Apache Kafka
+------------------------------
+https://kafka.apache.org/downloads
+Binary downloads
+
+[root@ahosan1 ~]# cd /docker/kafka/
+[root@ahosan1 kafka]# tar xzf kafka_2.12-3.4.0.tgz
+
+[root@ahosan1 kafka]# mv kafka_2.12-3.4.0 /usr/local/kafka
+[root@ahosan1 kafka]# cd /usr/local/kafka
+[root@ahosan1 kafka]# ll
+total 68
+drwxr-xr-x. 3 root root  4096 Feb  1 00:05 bin
+drwxr-xr-x. 3 root root  4096 Feb  1 00:05 config
+drwxr-xr-x. 2 root root  8192 May 25 13:51 libs
+-rw-r--r--. 1 root root 14869 Feb  1 00:02 LICENSE
+drwxr-xr-x. 2 root root  4096 Feb  1 00:05 licenses
+-rw-r--r--. 1 root root 28184 Feb  1 00:02 NOTICE
+drwxr-xr-x. 2 root root    44 Feb  1 00:05 site-docs
+[root@ahosan1 kafka]#
+[root@ahosan1 kafka]# vi /usr/local/kafka/config/server.properties
+listeners=PLAINTEXT://192.168.222.128:9092
+advertised.listeners=PLAINTEXT://192.168.222.128:9092
+
+Step 3–Setup Kafka Systemd Unit Files
+---------------------------------------
+[root@ahosan1 kafka]# vim /etc/systemd/system/zookeeper.service
+#Add below contnet:
+[Unit]
+Description=Apache Zookeeper server
+Documentation=http://zookeeper.apache.org
+Requires=network.target remote-fs.target
+After=network.target remote-fs.target
+[Service]
+Type=simple
+ExecStart=/usr/bin/bash /usr/local/kafka/bin/zookeeper-server-start.sh /usr/local/kafka/config/zookeeper.properties
+ExecStop=/usr/bin/bash /usr/local/kafka/bin/zookeeper-server-stop.sh
+Restart=on-abnormal
+[Install]
+WantedBy=multi-user.target
+
+[root@ahosan1 kafka]# vim /etc/systemd/system/kafka.service
+#Add below contnet:
+[Unit]
+Description=Apache Kafka Server
+Documentation=http://kafka.apache.org/documentation.html
+Requires=zookeeper.service
+[Service]
+Type=simple
+Environment="JAVA_HOME=/usr/lib/jvm/jre-11-openjdk"
+ExecStart=/usr/bin/bash /usr/local/kafka/bin/kafka-server-start.sh /usr/local/kafka/config/server.properties
+ExecStop=/usr/bin/bash /usr/local/kafka/bin/kafka-server-stop.sh
+[Install]
+WantedBy=multi-user.target
+
+[root@ahosan1 kafka]# systemctl daemon-reload
+
+Step 4–Start Kafka Server
+---------------------------
+[root@ahosan1 kafka]# systemctl start zookeeper
+[root@ahosan1 kafka]# systemctl start kafka
+[root@ahosan1 kafka]# systemctl status kafka
+[root@ahosan1 kafka]# systemctl status zookeeper
+
+Step 5–Creating Topics in Apache Kafka
+----------------------------------------
+[root@ahosan1 kafka]# cd /usr/local/kafka
+[root@ahosan1 kafka]# bin/kafka-topics.sh --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 1 --topic testTopic
+Created topic testTopic.
+[root@ahosan1 kafka]#
+
+[root@ahosan1 kafka]# bin/kafka-topics.sh --list --bootstrap-server localhost:9092
+testTopic
+[root@ahosan1 kafka]#
+
+Step 6–Apache Kafka Producer and Consumer
+-------------------------------------------
+[root@ahosan1 kafka]# bin/kafka-console-producer.sh --broker-list localhost:9092 --topic testTopic
+>Welcome to kafka
+>This is Ahosan Habib
+
+[root@ahosan1 kafka]# bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic testTopic --from-beginning
+Welcome to kafka
+This is Ahosan Habib
+
+Step 7-Kafdrop Setup
+--------------------
+[root@ahosan1 kafka]# cd /docker/kafka
+[root@ahosan1 kafka]# ll
+total 168772
+-rw-r--r--. 1 root root  66375819 May 25 17:03 kafdrop-3.31.0.jar
+-rw-r--r--. 1 root root 106441367 May 25 13:50 kafka_2.12-3.4.0.tgz
+[root@ahosan1 kafka]# cp kafdrop-3.31.0.jar kafdrop.jar
+[root@ahosan1 kafka]#
+[root@ahosan1 kafka]# ll
+total 233596
+-rw-r--r--. 1 root root  66375819 May 25 17:03 kafdrop-3.31.0.jar
+-rw-r--r--. 1 root root  66375819 May 25 17:32 kafdrop.jar
+-rw-r--r--. 1 root root 106441367 May 25 13:50 kafka_2.12-3.4.0.tgz
+[root@ahosan1 kafka]#
+
+[root@ahosan1 kafka]# java --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+    -jar /docker/kafka/kafdrop.jar \
+    --kafka.brokerConnect=localhost:9092
+
+--brows from browser
+http://192.168.222.128:9000
+
+[root@ahosan1 kafka]# vim /etc/systemd/system/kafdrop.service
+#Add below contnet:
+[Unit]
+Description=Kafdrop server
+Documentation=https://github.com/obsidiandynamics/kafdrop
+Requires=network.target remote-fs.target
+After=network.target remote-fs.target
+[Service]
+Type=simple
+ExecStart=/bin/java --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+    -jar /docker/kafka/kafdrop.jar \
+    --kafka.brokerConnect=192.168.222.128:9092
+Restart=on-abnormal
+[Install]
+WantedBy=multi-user.target
+
+[root@ahosan1 ~]# systemctl daemon-reload
+[root@ahosan1 ~]# systemctl start kafdrop
+[root@ahosan1 ~]# systemctl status kafdrop
+[root@ahosan1 ~]# systemctl enable kafdrop
+
+--brows from browser
+http://192.168.222.128:9000
+
+
+
+######################################Oracle setup for debezium######################################
+Step8 tablespace and user:
+------------------------------------
+sql> sqlplus / as sysdba
+--create encrypted tableSpace
+     sql> CREATE TABLESPACE ahosan
+	 DATAFILE '/u01/app/oracle/oradata/AHOSAN/ahosan.dbf' SIZE 1G AUTOEXTEND ON NEXT 100M MAXSIZE UNLIMITED;
+
+--create user
+CREATE USER ahosan
+IDENTIFIED BY ahosan
+DEFAULT TABLESPACE ahosan
+TEMPORARY TABLESPACE TEMP
+PROFILE default
+ACCOUNT UNLOCK;
+-- 2 Roles for ahosan 
+GRANT CONNECT TO ahosan;
+GRANT RESOURCE TO ahosan;
+ALTER USER ahosan DEFAULT ROLE ALL;
+-- 2 System Privileges for ahosan 
+GRANT CREATE SESSION TO ahosan;
+GRANT UNLIMITED TABLESPACE TO ahosan;
+-- 1 Tablespace Quota for ahosan 
+ALTER USER ahosan QUOTA UNLIMITED ON ahosan;
+
+--needed for debezium
+GRANT SELECT ON V_$DATABASE to ahosan;
+GRANT FLASHBACK ANY TABLE TO ahosan;
+GRANT SELECT ANY TABLE TO ahosan;
+GRANT SELECT_CATALOG_ROLE TO ahosan;
+GRANT EXECUTE_CATALOG_ROLE TO ahosan;
+GRANT SELECT ANY TRANSACTION TO ahosan;
+GRANT LOGMINING TO ahosan;
+GRANT CREATE TABLE TO ahosan;
+GRANT LOCK ANY TABLE TO ahosan;
+GRANT ALTER ANY TABLE TO ahosan;
+GRANT CREATE SEQUENCE TO ahosan;
+GRANT EXECUTE ON DBMS_LOGMNR TO ahosan;
+GRANT EXECUTE ON DBMS_LOGMNR_D TO ahosan;
+GRANT SELECT ON V_$LOG TO ahosan;
+GRANT SELECT ON V_$LOG_HISTORY TO ahosan;
+GRANT SELECT ON V_$LOGMNR_LOGS TO ahosan;
+GRANT SELECT ON V_$LOGMNR_CONTENTS TO ahosan;
+GRANT SELECT ON V_$LOGMNR_PARAMETERS TO ahosan;
+GRANT SELECT ON V_$LOGFILE TO ahosan;
+GRANT SELECT ON V_$ARCHIVED_LOG TO ahosan;
+GRANT SELECT ON V_$ARCHIVE_DEST_STATUS TO ahosan;
+GRANT SELECT_CATALOG_ROLE TO ahosan;
+
+ALTER DATABASE ADD SUPPLEMENTAL LOG DATA;
+alter system set enable_goldengate_replication = true;
+show parameters enable_goldengate_replication
+
+Step9 table & data:
+-------------------
+--sqlplus: ahosan/ahosan
+CREATE TABLE test (
+    id NUMBER GENERATED BY DEFAULT ON NULL AS IDENTITY,
+    name VARCHAR2(100),
+    address VARCHAR2(200),
+    phone VARCHAR2(20),
+    CONSTRAINT pk_test PRIMARY KEY (id)
+);
+
+INSERT INTO test (name, address, phone)
+VALUES ('test5', '123 Main St', '555-1234');
+
+
+######################################Debezium setup######################################
+Step10 debezium:
+-----------------------------
+--check the java version
+java -version
+
+--download and extract debezium
+cd /docker/debezium
+tar -xzf debezium-connector-oracle-2.3.0.Final-plugin.tar.gz
+
+--copy the extracted file to kafka's libs
+cp /docker/debezium/debezium-connector-oracle/* /usr/local/kafka/libs/
+
+--install the oracle client
+oracle-instantclient-basic-21.7.0.0.0-1.el8.x86_64.rpm
+oracle-instantclient-devel-21.7.0.0.0-1.el8.x86_64.rpm
+oracle-instantclient-jdbc-21.7.0.0.0-1.el8.x86_64.rpm
+oracle-instantclient-odbc-21.7.0.0.0-1.el8.x86_64.rpm
+oracle-instantclient-sqlplus-21.7.0.0.0-1.el8.x86_64.rpm
+oracle-instantclient-tools-21.7.0.0.0-1.el8.x86_64.rpm
+
+rpm -ivh oracle-instantclient-*
+
+--create tnsnames.ora file at root
+#vi /usr/lib/oracle/19.19/client64/lib/network/admin/tnsnames.ora
+	ahosan =
+  	(DESCRIPTION =
+    	(ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.222.128)(PORT = 1521))
+    	(CONNECT_DATA =
+      	(SERVER = DEDICATED)
+      	(SERVICE_NAME = ahosan)
+    	)
+  	)
+
+--add these two line
+#vi /usr/local/kafka/config/connect-distributed.properties
+	bootstrap.servers=192.168.222.128:9092
+	listeners=HTTP://192.168.222.128:8083
+
+--copy the oracle client's odbc.jar file at kafka lib dir and restart kafka,zookeeper,kafdrop,debezium.
+cp /usr/lib/oracle/19.19/client64/lib/ojdbc8.jar /usr/local/kafka/libs/ojdbc.jar
+
+--start debezium connector
+/usr/local/kafka/bin/connect-distributed.sh /usr/local/kafka/config/connect-distributed.properties
+
+--register the config of oracle
+vi /docker/debezium/connector-config.json
+	{
+	    "name": "inventory-connector",
+	    "config": {
+	        "connector.class" : "io.debezium.connector.oracle.OracleConnector",
+	        "tasks.max" : "1",
+	        "topic.prefix" : "server1",
+	        "database.hostname" : "192.168.222.128",
+	        "database.port" : "1521",
+	        "database.user" : "ahosan",
+	        "database.password" : "ahosan",
+	        "database.dbname" : "ahosan",
+	        "bootstrap.servers" : "192.168.222.128:9092",
+	        "schema.history.kafka.bootstrap.servers" : "192.168.222.128:9092",
+	        "schema.history.kafka.topic": "testTopic",
+	        "table.include.list": "ahosan.test"
+	    }
+	}
+
+--send it
+cd /docker/debezium
+curl -X POST -H "Content-Type: application/json" --data @connector-config.json http://192.168.222.128:8083/connectors
+--check it
+curl -X GET http://192.168.222.128:8083/connectors/inventory-connector
+
+--create consumer
+dnf install python3.8
+python3.8 -m pip install kafka-python mysql-connector-python
+
+--consumer file
+#vi /docker/debezium/consumer.py
+	import json
+	from kafka import KafkaConsumer
+	import mysql.connector
+	import time
+
+	consumer = KafkaConsumer('server1.AHOSAN.TEST', bootstrap_servers='192.168.222.128:9092')
+
+	mysql_table = 'todo'
+	mysql_connection = mysql.connector.connect(
+	    host="192.168.222.128",
+	    user="TodoList",
+	    password="Todo_List123",
+	    database="TodoList"
+	)
+
+	mysql_cursor = mysql_connection.cursor()
+
+	while True:
+	    for message in consumer:
+	        change_event = json.loads(message.value)
+	        print (change_event)
+
+	        #get and serial data from kafka
+	        payload = change_event.get('payload', {})
+	        data = payload.get('after', {})
+
+	        name = data.get('NAME', '')
+	        address = data.get('ADDRESS', '')
+	        phone = data.get('PHONE', '')
+
+	        #insert the data into MySQL
+	        insert_query = "INSERT INTO {} (name, address, phone) VALUES (%s, %s, %s)".format(mysql_table)
+	        values = (name, address, phone)
+	        mysql_cursor.execute(insert_query, values)
+	        mysql_connection.commit()
+
+	    time.sleep(1)
+
+cd /docker/debezium
+python3.8 consumer.py
+
+
+--Create Mysql user and table with (id, name, address, phone), Now ready to test
