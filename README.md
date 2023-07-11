@@ -1,3 +1,8 @@
+
+<img width="549" alt="OraToMysql" src="https://github.com/MdAhosanHabib/ORAtoMYSQLbyKafkaETL/assets/43145662/4ab3e52b-0f6e-49de-8269-91267ef887b9">
+
+Oracle to MySQL table replication by Kafka and Debezium.
+
 Step 1: Install Java
 
 1.	Install Java on your system using the package manager. For example, on CentOS, you can use the following command:
