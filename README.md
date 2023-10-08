@@ -3,43 +3,47 @@
 
 Oracle to MySQL table replication by Kafka and Debezium.
 
-Step 1: Install Java
+## Step 1: Install Java
 
 1.	Install Java on your system using the package manager. For example, on CentOS, you can use the following command:
 
+```bash
 sudo dnf install java-11-openjdk wget vim
+```
 
-Step 2: Download Apache Kafka
+## Step 2: Download Apache Kafka
 
 1.	Go to the Apache Kafka website (https://kafka.apache.org/downloads) and download the binary distribution of Kafka.
 
 3.	Extract the downloaded archive to a directory of your choice. For example:
-   
+```bash
 tar xzf kafka_2.12-3.4.0.tgz mv kafka_2.12-3.4.0 /usr/local/kafka 
+```
 
-Step 3: Configure Kafka Server
+## Step 3: Configure Kafka Server
 
 1.	Open the Kafka server properties file for editing:
-   
+```bash
 vi /usr/local/kafka/config/server.properties
+```
 
 4.	Update the following properties:
-   
+```bash
 listeners=PLAINTEXT://192.168.222.128:9092
-
 advertised.listeners=PLAINTEXT://192.168.222.128:9092
-
+```
 
 Replace 192.168.222.128 with the IP address of your Kafka server.
 
-Step 4: Setup Kafka Systemd Unit Files
+## Step 4: Setup Kafka Systemd Unit Files
 
 1.	Create a ZooKeeper systemd unit file:
-
+```bash
 vi /etc/systemd/system/zookeeper.service
+```
 
 3.	Add the following content:
-   
+```bash
 [Unit]
 
 Description=Apache ZooKeeper server
@@ -65,13 +69,14 @@ Restart=on-abnormal
 [Install]
 
 WantedBy=multi-user.target
+```
 
 1.	Create a Kafka systemd unit file:
-   
+```bash
 vi /etc/systemd/system/kafka.service 
-
+```
 3.	Add the following content:
-   
+```bash
  [Unit]
  
 Description=Apache Kafka Server
@@ -95,67 +100,75 @@ ExecStop=/usr/bin/bash /usr/local/kafka/bin/kafka-server-stop.sh
 [Install]
 
 WantedBy=multi-user.target
-
+```
 3.	Reload systemd configuration:
-   
+```bash
 systemctl daemon-reload 
+```
 
-Step 5: Start Kafka Server
+## Step 5: Start Kafka Server
 
 1.	Start ZooKeeper:
-   
+```bash
 systemctl start zookeeper 
+```
 
 3.	Start Kafka:
-   
+```bash
 systemctl start kafka 
+```
 
 5.	Check the status of Kafka:
-   
+```bash
 systemctl status kafka 
+```
 
-Step 6: Create Topics in Apache Kafka
+## Step 6: Create Topics in Apache Kafka
 
 1.	Create a topic:
-   
+```bash
 cd /usr/local/kafka 
 
 bin/kafka-topics.sh --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 1 --topic testTopic
-
+```
 Replace testTopic with the desired topic name.
 
 3.	Verify the topic creation:
-   
+```bash
 bin/kafka-topics.sh --list --bootstrap-server localhost:9092 
+```
 
-Step 7: Setup Kafdrop
+## Step 7: Setup Kafdrop
 
 1.	Download Kafdrop from the GitHub repository (https://github.com/obsidiandynamics/kafdrop/releases).
    
 3.	Extract the downloaded archive to a directory of your choice. For example:
-   
+```bash
 cd /docker/kafka 
 
 tar xzf kafdrop-3.31.0.jar mv kafdrop-3.31.0.jar kafdrop.jar 
+```
 
 5.	Start Kafdrop:
-   
+```bash
 java --add-opens=java.base/sun.nio.ch=ALL-UNNAMED -jar /docker/kafka/kafdrop.jar --kafka.brokerConnect=localhost:9092 
+```
 
 7.	Open a browser and access Kafdrop using the following URL: http://192.168.222.128:9000
    
-Step 8: Oracle Setup for Debezium
+## Step 8: Oracle Setup for Debezium
 
 1.	Connect to the Oracle database using SQL*Plus as a sysdba:
-   
+```bash
 sqlplus / as sysdba 
+```
 
 3.	Create a tablespace for the Debezium user:
-   
+```bash
 CREATE TABLESPACE ahosan DATAFILE '/u01/app/oracle/oradata/AHOSAN/ahosan.dbf' SIZE 1G AUTOEXTEND ON NEXT 100M MAXSIZE UNLIMITED; 
-
+```
 5.	Create a user and grant necessary privileges to the user:
-   
+```bash
 CREATE USER ahosan IDENTIFIED BY ahosan DEFAULT TABLESPACE ahosan TEMPORARY TABLESPACE TEMP PROFILE default ACCOUNT UNLOCK;
 
 GRANT CONNECT, RESOURCE TO ahosan;
@@ -171,53 +184,58 @@ GRANT SELECT ON V_$DATABASE TO ahosan;
 GRANT FLASHBACK ANY TABLE TO ahosan;
 
 -- Add more necessary privileges as per your requirements
-
+```
 1.	Enable supplemental logging and GoldenGate replication:
-   
+```bash
 ALTER DATABASE ADD SUPPLEMENTAL LOG DATA;
 
 ALTER SYSTEM SET enable_goldengate_replication = true;
+```
 
 3.	Check the value of enable_goldengate_replication parameter:
-   
+```bash
 show parameters enable_goldengate_replication; 
+```
 
-Step 9: Configure Debezium Connector
+## Step 9: Configure Debezium Connector
 
 1.	Copy the Debezium Oracle connector JAR files to the Kafka libs directory:
-   
+```bash
 cp /docker/debezium/debezium-connector-oracle/* /usr/local/kafka/libs/ 
+```
 
 3.	Install the Oracle Instant Client on your system.
    
 5.	Configure the tnsnames.ora file with the connection details of your Oracle database.
 
 7.	Open the Kafka Connect distributed properties file for editing:
-   
+```bash
 vi /usr/local/kafka/config/connect-distributed.properties 
-
+```
 9.	Update the following properties:
-    
+```bash
 bootstrap.servers=192.168.222.128:9092 
 
 listeners=HTTP://192.168.222.128:8083 
+```
 
 11.	Copy the Oracle client's ojdbc.jar file to the Kafka libs directory:
-    
+```bash
 cp /usr/lib/oracle/19.19/client64/lib/ojdbc8.jar /usr/local/kafka/libs/ojdbc.jar 
+```
 
-Step 10: Start Debezium Connector
+## Step 10: Start Debezium Connector
 
 1.	Start the Kafka Connect distributed service:
-   
+```bash
 /usr/local/kafka/bin/connect-distributed.sh /usr/local/kafka/config/connect-distributed.properties 
-
+```
 3.	Create a configuration file for the Oracle connector:
-   
+```bash
 vi /docker/debezium/connector-config.json 
-
+```
 5.	Add the following content to the file:
-   
+```bash
 {
 
     "name": "inventory-connector",
@@ -251,31 +269,36 @@ vi /docker/debezium/connector-config.json
     }
     
 }
+```
 
 1.	Register the Oracle connector by sending a POST request to Kafka Connect's REST API:
-   
+```bash
 cd /docker/debezium 
 
 curl -X POST -H "Content-Type: application/json" --data @connector-config.json http://192.168.222.128:8083/connectors 
+```
 
 3.	Check the status of the connector:
-   
+```bash
 curl -X GET http://192.168.222.128:8083/connectors/inventory-connector 
+```
 
-Step 11: Create a Kafka Consumer
+## Step 11: Create a Kafka Consumer
 
 1.	Install Python 3.8 and the required dependencies:
-   
+```bash
 dnf install python3.8 
 
 python3.8 -m pip install kafka-python mysql-connector-python 
+```
 
 3.	Create a file for the Kafka consumer:
-   
+```bash
 vi /docker/debezium/consumer.py 
+```
 
 5.	Add the following Python code to the file:
-   
+```bash
 	import json
 
 	from kafka import KafkaConsumer
@@ -343,16 +366,16 @@ vi /docker/debezium/consumer.py
 
  
     time.sleep(1)
-  	
+```
 
-Step 12: Run the Kafka Consumer
+## Step 12: Run the Kafka Consumer
 
 1.	Run the Kafka consumer using the Python script:
-
+```bash
 cd /docker/debezium 
 
 python3.8 consumer.py 
-
+```
 
 
 Congratulations! You have completed the setup process for Kafka, ZooKeeper, Kafdrop, Oracle, and Debezium. You can now start producing and consuming messages from Kafka and observe the data being captured by the Debezium Oracle connector and inserted into the MySQL database.
